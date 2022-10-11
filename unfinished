@@ -1,0 +1,316 @@
+//@version=5
+indicator("Pierce Gap" , shorttitle = "Pierce Gap [V1.2]" , overlay = true , max_lines_count = 500)
+// indicator("Pivot Points High Low", shorttitle="Pivots HL", overlay=true, max_labels_count=500)
+//___________________________________________________________________________________________________________________________________________________________________________
+//_______________  Pivot script
+
+lengthGroupTitle = "LENGTH LEFT / RIGHT"
+colorGroupTitle = "Text Color / Label Color"
+leftLenH = input.int(title="Pivot High", defval=2, minval=1, inline="Pivot High", group=lengthGroupTitle)
+rightLenH = input.int(title="/", defval=2, minval=1, inline="Pivot High", group=lengthGroupTitle)
+textColorH = input(title="Pivot High", defval=color.black, inline="Pivot High", group=colorGroupTitle)
+labelColorH = input(title="", defval=color.white, inline="Pivot High", group=colorGroupTitle)
+ 
+leftLenL = input.int(title="Pivot Low", defval=2, minval=1, inline="Pivot Low", group=lengthGroupTitle)
+rightLenL = input.int(title="/", defval=2, minval=1, inline="Pivot Low", group=lengthGroupTitle)
+textColorL = input(title="Pivot Low", defval=color.black, inline="Pivot Low", group=colorGroupTitle)
+labelColorL = input(title="", defval=color.white, inline="Pivot Low", group=colorGroupTitle)
+ 
+ph = ta.pivothigh(leftLenH, rightLenH)
+pl = ta.pivotlow(leftLenL, rightLenL)
+ 
+drawLabel(_offset, _pivot, _style, _color, _textColor) =>
+    if not na(_pivot)
+        label.new(bar_index[_offset], _pivot, str.tostring(_pivot, format.mintick), style=_style, color=_color, textcolor=_textColor, size = size.tiny)
+ 
+drawLabel(rightLenH, ph, label.style_label_down, labelColorH, textColorH)
+drawLabel(rightLenL, pl, label.style_label_up, labelColorL, textColorL)
+ 
+//____________________________________________________________________________________________________________________________________________________________________________
+//_______________ Main script
+
+extend = input.int(title = "Line Length" , defval = 100)
+extendforever = input.bool(title = "Extend Lines To Current Bar" , defval = false)
+ 
+bull_gap = low > high[2] and barstate.isconfirmed
+bear_gap = high < low[2] and barstate.isconfirmed
+
+//_______________
+//____ Array declaration
+//__FVG's
+var BUFVGH = array.new_line()
+var BUFVGL = array.new_line()
+var BUFVGC = array.new_line()
+
+var BEFVGH = array.new_line()
+var BEFVGL = array.new_line()
+var BEFVGC = array.new_line()
+
+//__Tested FVG's
+var BUTFVGH = array.new_float()
+var BUTFVGL = array.new_float()
+var BUTFVGC = array.new_float()
+
+var BETFVGH = array.new_float()
+var BETFVGL = array.new_float()
+var BETFVGC = array.new_float()
+
+//__Pivot points
+//lows/highs after FVG before test
+
+var BUP = array.new_float()
+var BEP = array.new_float()
+
+//final high/low point after FVG before test
+
+var BTUP = array.new_float()
+var BTEP = array.new_float()
+
+//pivot points between test and entry
+//bullish
+var BUTPH = array.new_float()
+var BUTPL = array.new_float()
+//bearish
+var BETPH = array.new_float()
+var BETPL = array.new_float()
+
+//pivot point after CE
+//bullish
+var CEL = array.new_float()
+var CELT = array.new_float()
+//bearish
+var CEH = array.new_float()
+var CEHT = array.new_float()
+//__ Bool variables to initiate next step
+//FVG entry condition
+var entry_long = array.new_int()
+var entry_short = array.new_int()
+//__strategy arrays
+//Bullish
+var bull_entry = array.new_float()
+var bull_tp    = array.new_float()
+var bull_sl    = array.new_float()
+//Bearish
+var bear_entry = array.new_float()
+var bear_tp    = array.new_float()
+var bear_sl    = array.new_float()
+
+
+//_______________
+//_____ FVG label sizing
+
+if array.size(BUFVGH) > 0
+    for i = array.size(BUFVGH) - 1 to 0
+        if extendforever == true
+            line.set_x2(array.get(BUFVGH , i) , bar_index)
+            line.set_x2(array.get(BUFVGL , i) , bar_index)
+            line.set_x2(array.get(BUFVGC , i), bar_index)
+
+
+if array.size(BUFVGL) > 0
+    for i = array.size(BUFVGL) - 1 to 0 
+        if extendforever == true
+            line.set_x2(array.get(BEFVGH , i) , bar_index)
+            line.set_x2(array.get(BEFVGL , i) , bar_index)
+            line.set_x2(array.get(BEFVGC , i), bar_index)
+
+//_______________
+//_____ Bullish FVG
+
+if bull_gap
+    array.insert(BUFVGL , 0, line.new(x1 = bar_index[2] , y1 = high[2] , x2 = bar_index + extend, y2 = high[2] , xloc = xloc.bar_index , color = color.green , style = line.style_solid , width = 1))
+    array.insert(BUFVGH , 0, line.new(x1 = bar_index[2] , y1 = low , x2 = bar_index + extend , y2 = low , xloc = xloc.bar_index , color = color.green , style = line.style_solid , width = 1))
+    array.insert(BUFVGC , 0, line.new(x1 = bar_index[2] , y1 = ((high[2] + low)/2) , x2 = bar_index + extend , y2 = ((high[2] + low)/2) , xloc = xloc.bar_index , color = color.green , style = line.style_solid , width = 1))
+//_____ Bearish FVG
+if bear_gap
+    array.insert(BEFVGL , 0, line.new(x1 = bar_index[2] , y1 = high , x2 = bar_index + extend , y2 = high , xloc = xloc.bar_index , color = color.red , style = line.style_solid , width = 1))
+    array.insert(BEFVGH , 0, line.new(x1 = bar_index[2] , y1 = low[2] , x2 = bar_index + extend , y2 = low[2] , xloc = xloc.bar_index , color = color.red , style = line.style_solid , width = 1))
+    array.insert(BEFVGC , 0, line.new(x1 = bar_index[2] , y1 = ((low[2] + high)/2) , x2 = bar_index + extend , y2 = ((low[2] + high)/2) , xloc = xloc.bar_index , color = color.red , style = line.style_solid , width = 1))
+
+
+//_____________________________________________________________________________________________________________________________________________________________________________
+//_______________ pre FVG test swing pivot
+//_____ bullish Tested FVG
+if array.size(BUFVGH) > 0
+    if barstate.isconfirmed == true
+        if close > line.get_y2(array.get(BUFVGH, 0))
+            array.insert(BUP, 0, high)
+        if low < line.get_y2(array.get(BUFVGH , 0)) and low > line.get_y2(array.get(BUFVGC , 0))
+            if close > line.get_y2(array.get(BUFVGH, 0))
+                array.insert(BUTFVGL , 0, line.get_y2(array.get(BUFVGL, 0)))
+                array.insert(BUTFVGH , 0, line.get_y2(array.get(BUFVGH, 0)))
+                array.insert(BUTFVGC , 0, line.get_y2(array.get(BUFVGC, 0)))
+                array.insert(BTUP, 0, array.max(BUP))
+        if low <= line.get_y2(array.get(BUFVGC , 0))
+            line.delete(array.get(BUFVGH , 0))
+            array.remove(BUFVGH , 0)
+            line.delete(array.get(BUFVGL , 0))
+            array.remove(BUFVGL , 0)
+            line.delete(array.get(BUFVGC , 0))
+            array.remove(BUFVGC , 0)
+            array.clear(BUP)
+            if array.size(BTUP) > 0
+                array.remove(BTUP, 0)
+
+//_____ Bearish tested FVG
+if array.size(BEFVGH) > 0
+    if barstate.isconfirmed == true
+        if high > line.get_y2(array.get(BEFVGL , 0)) and high < line.get_y2(array.get(BEFVGC , 0))
+            if close < line.get_y2(array.get(BEFVGL, 0))
+                array.insert(BETFVGL , 0, line.get_y2(array.get(BEFVGL, 0)))
+                array.insert(BETFVGH , 0, line.get_y2(array.get(BEFVGH, 0)))
+                array.insert(BETFVGC , 0, line.get_y2(array.get(BEFVGC, 0)))
+                array.insert(BTUP, 0, array.max(BEP))
+        else if high >= line.get_y2(array.get(BEFVGC , 0))
+            line.delete(array.get(BEFVGH , 0))
+            array.remove(BEFVGH , 0)
+            line.delete(array.get(BEFVGL , 0))
+            array.remove(BEFVGL , 0)
+            line.delete(array.get(BEFVGC , 0))
+            array.remove(BEFVGC , 0)
+            array.clear(BEP)
+            if array.size(BTEP) > 0
+                array.remove(BTEP, 0)
+
+//_______________ tsted FVG step 2
+//_____ Bullish pivots and broken high
+
+if array.size(BUFVGH) > 0
+    if array.size(BUTFVGH) > 0
+        if array.size(BTUP) > 0
+            if barstate.isconfirmed == true
+                if high > array.get(BTUP, 0)
+                    if ph > 0.00
+                        array.insert(BUTPH, 0, ph)
+                    if pl > 0.00
+                        array.insert(BUTPL, 0, pl)
+                if low <= array.get(BUTFVGC, 0)
+                    array.remove(BUTFVGH , 0)
+                    array.remove(BUTFVGL , 0)
+                    array.remove(BUTFVGC , 0)
+                    line.delete(array.get(BUFVGH , 0))
+                    array.remove(BUFVGH , 0)
+                    line.delete(array.get(BUFVGL , 0))
+                    array.remove(BUFVGL , 0)
+                    line.delete(array.get(BUFVGC , 0))
+                    array.remove(BUFVGC , 0)
+                    array.clear(BUP)
+                    array.remove(BTUP, 0)
+
+//_____ bearish pivots and broken low
+
+if array.size(BEFVGH) > 0
+    if array.size(BETFVGH) > 0
+        if array.size(BTEP) > 0
+            if barstate.isconfirmed == true
+                if low < array.get(BTEP, 0)
+                    if ph > 0.00
+                        array.insert(BETPH, 0, ph)
+                    if pl > 0.00
+                        array.insert(BETPL, 0, pl)
+                if high >= array.get(BETFVGC, 0)
+                    array.remove(BETFVGH , 0)
+                    array.remove(BETFVGL , 0)
+                    array.remove(BETFVGC , 0)
+                    line.delete(array.get(BEFVGH , 0))
+                    array.remove(BEFVGH , 0)
+                    line.delete(array.get(BEFVGL , 0))
+                    array.remove(BEFVGL , 0)
+                    line.delete(array.get(BEFVGC , 0))
+                    array.remove(BEFVGC , 0)
+                    array.clear(BEP)
+                    array.remove(BTEP, 0)
+
+//_______________ FVG step 3 CE break on high/low, close respecting ce
+//_____ Bullish FVG
+counter = 0
+if array.size(BUFVGH) > 0
+    if array.size(BUTFVGH) > 0
+        if array.size(BTUP) > 0
+            if array.size(BUTPH) > 2
+                if array.size(BUTPL) > 0
+                    if low <= array.get(BUTFVGC, 0)
+                        if close >= array.get(BUTFVGC, 0)
+                            array.insert(CEL, 0, low)
+
+if array.size(BUFVGH) > 0
+    if array.size(BUTFVGH) > 0
+        if array.size(BTUP) > 0
+            if array.size(BUTPH) > 2
+                if array.size(BUTPL) > 0
+                    if array.size(CEL) > 0
+                        if barstate.isconfirmed == true
+                            if high > array.get(BUTPH, 0)
+                                array.insert(CELT, 0, array.max(CEL))
+if array.size(BUFVGH) > 0
+    if array.size(BUTFVGH) > 0
+        if array.size(BTUP) > 0
+            if array.size(BUTPH) > 2
+                if array.size(BUTPL) > 0
+                    if array.size(CEL) > 0
+                        if barstate.isconfirmed == true
+                            if bull_gap == true
+                                if line.get_y2(array.get(BUFVGL, 0)) <= array.get(BUTFVGH, 0)
+                                    array.insert(entry_long, 0, 1)
+
+//_____ Bearish FVG
+
+if array.size(BEFVGH) > 0
+    if array.size(BETFVGH) > 0
+        if array.size(BTEP) > 0
+            if array.size(BETPH) > 2
+                if array.size(BETPL) > 0
+                    if high >= array.get(BETFVGC, 0)
+                        if close <= array.get(BETFVGC, 0)
+                            array.insert(CEH, 0, high)
+
+if array.size(BEFVGH) > 0
+    if array.size(BETFVGH) > 0
+        if array.size(BTEP) > 0
+            if array.size(BETPH) > 2
+                if array.size(BETPL) > 0
+                    if array.size(CEH) > 0
+                        if barstate.isconfirmed == true
+                            if low < array.get(BETPL, 0)
+                                array.insert(CEHT, 0, array.max(CEH))
+if array.size(BEFVGH) > 0
+    if array.size(BETFVGH) > 0
+        if array.size(BTEP) > 0
+            if array.size(BETPH) > 2
+                if array.size(BETPL) > 0
+                    if array.size(CEL) > 0
+                        if barstate.isconfirmed == true
+                            if bear_gap == true
+                                if line.get_y2(array.get(BEFVGH, 0)) >= array.get(BETFVGL, 0)
+                                    array.insert(entry_short, 0, 1)
+
+//___________________________________________________________________________________________________________________________________________________________________________
+//_______________ Entry parameters
+//_____ Bull entry
+if array.size(entry_long) > 0
+    if array.size(BUFVGH) > 1
+        if array.size(BUTFVGH) > 0
+            if array.size(BUTPH)
+                if array.size(CEL) > 1
+                    array.insert(bull_entry, 0, array.get(BUTFVGH, 0))
+                    array.insert(bull_tp, 0, array.max(BUTPH))
+                    array.insert(bull_sl, 0, array.get(CELT, 0))
+//_____ Bear entry
+if array.size(entry_short) > 0
+    if array.size(BEFVGH) > 1
+        if array.size(BETFVGH) > 0
+            if array.size(BETPL)
+                if array.size(CEH) > 1
+                    array.insert(bear_entry, 0, array.get(BETFVGH, 0))
+                    array.insert(bear_tp, 0, array.max(BETPH))
+                    array.insert(bear_sl, 0, array.get(CEHT, 0))
+
+
+
+
+//__________________________________________________________________________________________________________________________________________________________________________
+//_______________ Alerts
+// alertcondition(condition = bull_gap == true and barstate.isconfirmed , title = "Bull Gap")
+// alertcondition(condition = bear_gap == true and barstate.isconfirmed , title = "Bear Gap")
+// alertcondition(condition = bull_gap == true and barstate.isconfirmed or bear_gap == true and barstate.isconfirmed , title = "Any Gap")
+plot(array.size(BTUP))
